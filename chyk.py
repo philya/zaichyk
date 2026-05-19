@@ -6,10 +6,8 @@ from __future__ import annotations
 import argparse
 import difflib
 import functools
-import json
 import re
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from anthropic import Anthropic
@@ -172,10 +170,10 @@ class ChykApp(App):
     #viewer-scroll { width: 1fr; height: 1fr; border: round white; }
     #viewer { width: 100%; padding: 0 1; }
     #vbar { width: 3; height: 1fr; padding: 0 1; }
-    #choices-scroll { height: 6; border: round white; }
+    #choices-scroll { height: 8; border: round white; }
     #choices { padding: 0 1; width: 100%; }
     #commands { height: 1; padding: 0 1; color: $accent; }
-    #editor { height: 30%; border: round white; }
+    #editor { height: 30%; border: round white; display: none; }
     """
 
     BINDINGS = [
@@ -197,12 +195,6 @@ class ChykApp(App):
         self.current_spans: list[tuple[int, int]] = []
         self.current_correction: str = ""
         self.client = Anthropic()
-        self.session_log = {
-            "file": str(self.filepath),
-            "started_at": datetime.now().isoformat(timespec="seconds"),
-            "entries": [],
-        }
-        self.log_path = self.filepath.with_suffix(self.filepath.suffix + ".chyk.json")
         self.skip_path = self.filepath.with_suffix(self.filepath.suffix + ".chyk")
         self.skip_set: set[str] = self._load_skip_set()
         # Modes: thinking | choosing | editing | done
@@ -360,18 +352,24 @@ class ChykApp(App):
 
     def start_edit(self, initial: str) -> None:
         editor = self.query_one("#editor", TextArea)
+        editor.display = True
         editor.text = initial
         editor.focus()
         self.mode = "editing"
         self._set_commands("[Ctrl+A] Apply & recheck   [Esc] Cancel")
+
+    def _close_editor(self) -> None:
+        editor = self.query_one("#editor", TextArea)
+        editor.text = ""
+        editor.display = False
+        self.set_focus(None)
 
     def _set_commands(self, text: str) -> None:
         self.query_one("#commands", Static).update(Text(text))
 
     def skip(self) -> None:
         """Move to the next sentence without editing or recording a skip entry."""
-        self.query_one("#editor", TextArea).text = ""
-        self.set_focus(None)
+        self._close_editor()
         self.advance()
 
     def commit(self, new_sentence: str, recheck: bool = False) -> None:
@@ -381,18 +379,10 @@ class ChykApp(App):
         if new_sentence != old:
             self.text = self.text[:start] + new_sentence + self.text[end:]
             self.delta += len(new_sentence) - len(old)
-            self.session_log["entries"].append(
-                {
-                    "index": self.idx,
-                    "original": self.current_sentence,
-                    "corrected": new_sentence,
-                }
-            )
             self._save_file()
         elif not recheck:
             self._mark_skipped(self.current_sentence)
-        self.query_one("#editor", TextArea).text = ""
-        self.set_focus(None)
+        self._close_editor()
         if recheck:
             self._check_sentence(start, start + len(new_sentence), new_sentence)
         else:
@@ -406,12 +396,8 @@ class ChykApp(App):
     def finish(self) -> None:
         self.mode = "done"
         self.filepath.write_text(self.text)
-        with open(self.log_path, "w") as f:
-            json.dump(self.session_log, f, indent=2)
         self.query_one("#choices", Static).update(
-            Text.from_markup(
-                f"[green]Done.[/] Saved file and log to [bold]{self.log_path.name}[/]."
-            )
+            Text.from_markup("[green]Done.[/]")
         )
         self._set_commands("[Esc] Quit")
         self.update_viewer()
@@ -441,8 +427,7 @@ class ChykApp(App):
             elif event.key == "escape":
                 event.stop()
                 event.prevent_default()
-                self.query_one("#editor", TextArea).text = ""
-                self.set_focus(None)
+                self._close_editor()
                 self.show_choices()
         elif self.mode == "error":
             if event.key == "n":
