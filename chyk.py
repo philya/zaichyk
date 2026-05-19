@@ -406,20 +406,20 @@ class ChykApp(App):
 
     def on_key(self, event: events.Key) -> None:
         if self.mode == "choosing":
-            if event.key == "a":
+            if event.key in ("a", "ф"):
                 event.stop()
                 self.commit(self.current_correction)
-            elif event.key == "k":
+            elif event.key in ("k", "л"):
                 event.stop()
                 self.commit(self.current_sentence)
-            elif event.key == "s":
+            elif event.key in ("s", "і"):
                 event.stop()
                 self.skip()
-            elif event.key == "e":
+            elif event.key in ("e", "у"):
                 event.stop()
                 self.start_edit(self.current_sentence)
         elif self.mode == "editing":
-            if event.key == "ctrl+a":
+            if event.key in ("ctrl+a", "ctrl+ф"):
                 event.stop()
                 event.prevent_default()
                 editor = self.query_one("#editor", TextArea)
