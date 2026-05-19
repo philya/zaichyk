@@ -159,7 +159,7 @@ class VBar(Static):
         fill = 0 if self.total == 0 else int(round(h * self.value / self.total))
         lines = []
         for i in range(h):
-            lines.append("█" if (h - 1 - i) < fill else "│")
+            lines.append("█" if i < fill else "│")
         text = Text("\n".join(lines))
         text.stylize("green")
         return text
