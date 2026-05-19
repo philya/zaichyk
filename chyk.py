@@ -248,13 +248,28 @@ class ChykApp(App):
         self.query_one("#viewer", Static).update(view)
 
     def scroll_to_span(self, start: int) -> None:
-        line = self.text[:start].count("\n")
+        line = self._visual_row(start)
         scroll = self.query_one("#viewer-scroll", VerticalScroll)
         viewport_top = int(scroll.scroll_y)
         viewport_height = scroll.size.height
         if viewport_height and viewport_top <= line < viewport_top + viewport_height:
             return
         scroll.scroll_to(y=line, animate=False)
+
+    def _visual_row(self, char_offset: int) -> int:
+        """Return the wrapped-render row that contains `char_offset` in self.text."""
+        width = self.query_one("#viewer", Static).content_size.width
+        if width <= 0:
+            return self.text[:char_offset].count("\n")
+        src = self.text[:char_offset]
+        lines = src.split("\n")
+        row = 0
+        for i, line in enumerate(lines):
+            if i == len(lines) - 1:
+                row += len(line) // width
+            else:
+                row += max(1, -(-len(line) // width))
+        return row
 
     # --- main flow -------------------------------------------------------
 
