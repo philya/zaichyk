@@ -31,15 +31,114 @@ PROMPT = (
     "Input: {sentence}"
 )
 
-SENTENCE_RE = re.compile(r"[^.!?\n]*[.!?]+|[^.!?\n]+(?=\n|$)")
 NON_PROSE_RE = re.compile(r"^(#|```|~~~|\||---+|\*\*\*+|___+)")
+
+# Bracket/quote pairs that should suppress sentence-terminator detection
+# while open. Straight single quote is intentionally absent (apostrophe
+# collisions in contractions).
+_BRACKET_PAIRS: dict[str, str] = {
+    "(": ")",
+    "[": "]",
+    "{": "}",
+    "\"": "\"",
+    "“": "”",
+    "‘": "’",
+    "«": "»",
+    "‹": "›",
+}
+_TERMINATORS = ".!?"
+
+
+def _emphasis_opener(text: str, i: int) -> str | None:
+    """If text[i:] starts an emphasis run (`*` or `**`) per a loose CommonMark
+    reading, return the opener token; otherwise None.
+
+    Distinguishes from bullet markers (`* `) and arithmetic-style standalone
+    asterisks (` * `) by requiring the asterisk(s) to be immediately followed
+    by a non-space character.
+    """
+    n = len(text)
+    if text[i] != "*":
+        return None
+    if text[i : i + 2] == "**":
+        j = i + 2
+        if j < n and not text[j].isspace() and text[j] != "*":
+            return "**"
+        return None
+    j = i + 1
+    if j < n and not text[j].isspace() and text[j] != "*":
+        return "*"
+    return None
 
 
 def split_sentences(text: str) -> list[tuple[int, int, str]]:
-    """Return [(start, end, sentence)] for each prose-sentence in text."""
+    """Return [(start, end, sentence)] for each prose-sentence in text.
+
+    Sentence terminators (`.`, `!`, `?`, line breaks) are ignored while
+    inside a balanced quote/bracket/paren/emphasis block, so quoted speech
+    or emphasised phrases with internal punctuation stay as one sentence.
+    """
     spans: list[tuple[int, int, str]] = []
-    for m in SENTENCE_RE.finditer(text):
-        raw = m.group()
+    n = len(text)
+    i = 0
+    while i < n:
+        while i < n and text[i] in " \t\n":
+            i += 1
+        if i >= n:
+            break
+        start = i
+        stack: list[str] = []
+        while i < n:
+            ch = text[i]
+            if stack:
+                top = stack[-1]
+                if top == "**":
+                    if text[i : i + 2] == "**" and i > 0 and not text[i - 1].isspace():
+                        stack.pop()
+                        i += 2
+                        continue
+                elif top == "*":
+                    if ch == "*" and i > 0 and not text[i - 1].isspace():
+                        stack.pop()
+                        i += 1
+                        continue
+                elif ch == top:
+                    stack.pop()
+                    i += 1
+                    continue
+                if ch in _BRACKET_PAIRS and _BRACKET_PAIRS[ch] != ch:
+                    stack.append(_BRACKET_PAIRS[ch])
+                    i += 1
+                    continue
+                opener = _emphasis_opener(text, i)
+                if opener is not None:
+                    stack.append(opener)
+                    i += len(opener)
+                    continue
+                if ch == "\n" and i + 1 < n and text[i + 1] == "\n":
+                    stack.clear()
+                    break
+                i += 1
+                continue
+            if ch == "\n":
+                break
+            opener = _emphasis_opener(text, i)
+            if opener is not None:
+                stack.append(opener)
+                i += len(opener)
+                continue
+            if ch in _BRACKET_PAIRS:
+                stack.append(_BRACKET_PAIRS[ch])
+                i += 1
+                continue
+            if ch in _TERMINATORS:
+                i += 1
+                while i < n and text[i] in _TERMINATORS:
+                    i += 1
+                break
+            i += 1
+        end = i
+        raw = text[start:end]
         stripped = raw.strip()
         if not stripped:
             continue
@@ -47,7 +146,7 @@ def split_sentences(text: str) -> list[tuple[int, int, str]]:
             continue
         lead = len(raw) - len(raw.lstrip())
         trail = len(raw) - len(raw.rstrip())
-        spans.append((m.start() + lead, m.end() - trail, stripped))
+        spans.append((start + lead, end - trail, stripped))
     return spans
 
 
