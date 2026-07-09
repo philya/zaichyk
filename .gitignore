@@ -1,3 +1,4 @@
 env
 __pycache__
 .anthropic_key
+.env

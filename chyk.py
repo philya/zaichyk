@@ -6,11 +6,13 @@ from __future__ import annotations
 import argparse
 import difflib
 import functools
+import os
 import re
 import sys
 from pathlib import Path
 
 from anthropic import Anthropic
+from dotenv import load_dotenv
 from rich.text import Text
 from textual import events
 from textual.app import App, ComposeResult
@@ -18,8 +20,9 @@ from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Static, TextArea
 
+load_dotenv()
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 
 PROMPT = (
     "Rewrite this sentence with perfect grammar and syntax and consistent "
