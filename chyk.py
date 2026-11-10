@@ -11,8 +11,8 @@ import re
 import sys
 from pathlib import Path
 
-from anthropic import Anthropic
 from dotenv import load_dotenv
+from openai import OpenAI
 from rich.text import Text
 from textual import events
 from textual.app import App, ComposeResult
@@ -22,12 +22,17 @@ from textual.widgets import Static, TextArea
 
 load_dotenv()
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+MODEL = os.environ.get("MODEL", "~openai/gpt-luna-latest")
 
 PROMPT = (
-    "Rewrite this sentence with perfect grammar and syntax and consistent "
-    "use of punctuation characters. Don't edit word choice or order, only "
-    "correct grammatical mistakes. If the input is not a normal prose "
+    "Rewrite this sentence with perfect spelling, grammar and syntax and "
+    "consistent use of punctuation characters, following the current "
+    "official Ukrainian orthography (Український правопис) for Ukrainian "
+    "text. Use the typographic apostrophe ’ in Ukrainian words. Don't edit "
+    "word choice or order, only correct mistakes; a non-standard "
+    "construction may be replaced by its normative equivalent. If the input "
+    "is not a normal prose "
     "sentence (e.g. a heading, a code fragment, a URL, or a list marker), "
     "return it exactly unchanged. Return only the resulting text with no "
     "commentary, no quotation marks, and no surrounding formatting.\n\n"
@@ -296,7 +301,10 @@ class ChykApp(App):
         self.current_stripped: str = ""
         self.current_spans: list[tuple[int, int]] = []
         self.current_correction: str = ""
-        self.client = Anthropic()
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENROUTER_API_KEY is not set (see .env.example)")
+        self.client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
         self.skip_path = self.filepath.with_suffix(self.filepath.suffix + ".chyk")
         self.skip_set: set[str] = self._load_skip_set()
         # Modes: thinking | choosing | editing | done
@@ -404,14 +412,14 @@ class ChykApp(App):
 
     def fetch_correction(self, sentence: str) -> None:
         try:
-            msg = self.client.messages.create(
+            resp = self.client.chat.completions.create(
                 model=MODEL,
                 max_tokens=1024,
                 messages=[
                     {"role": "user", "content": PROMPT.format(sentence=sentence)}
                 ],
             )
-            correction = msg.content[0].text.strip()
+            correction = (resp.choices[0].message.content or "").strip()
         except Exception as exc:  # noqa: BLE001
             self.call_from_thread(self._on_correction_error, str(exc))
             return
@@ -434,7 +442,7 @@ class ChykApp(App):
 
     def _on_correction_error(self, err: str) -> None:
         self.query_one("#choices", Static).update(
-            Text.from_markup(f"[red]LLM error:[/] {err}")
+            Text.assemble(("LLM error: ", "red"), err)
         )
         self._set_commands("[n] Skip   [Esc] Quit")
         self.mode = "error"
@@ -532,7 +540,7 @@ class ChykApp(App):
                 self._close_editor()
                 self.show_choices()
         elif self.mode == "error":
-            if event.key == "n":
+            if event.key in ("n", "т"):
                 event.stop()
                 self.advance()
 
@@ -552,7 +560,12 @@ def main() -> int:
         print(f"error: file not found: {path}", file=sys.stderr)
         return 1
 
-    ChykApp(str(path)).run()
+    try:
+        app = ChykApp(str(path))
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    app.run()
     return 0
 
 
