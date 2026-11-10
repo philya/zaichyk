@@ -3,3 +3,6 @@ __pycache__
 .anthropic_key
 .env
 .claude
+build/
+dist/
+*.egg-info/

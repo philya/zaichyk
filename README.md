@@ -1,12 +1,31 @@
 A tool for spellchecking and proofreading markdown text.
 
-chyk.py <file>
+    chyk <file>
 
 It splits the text into sentences and sends each one to an LLM via [OpenRouter](https://openrouter.ai) (`~openai/gpt-luna-latest` by default). The prompt is something like this: "Rewrite this sentence with perfect spelling, grammar and syntax and consistent use of punctuation characters, following the current official Ukrainian orthography (Український правопис). Don't edit word choice or order, only correct mistakes."
 
+## Installation
+
+Install it as a command for the current user with [uv](https://docs.astral.sh/uv/). It goes into its own isolated environment and is linked as `~/.local/bin/chyk`:
+
+    uv tool install .              # from the repo root
+    uv tool install --reinstall .  # after pulling changes
+    uv tool install --editable .   # or: pick up source edits without reinstalling
+    uv tool uninstall zaichyk      # to remove it
+
+Then run `chyk <file>` from any directory. You can still run `python chyk.py <file>` from the repo.
+
 ## Configuration
 
-Copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`. Set `MODEL` to use a different OpenRouter model.
+Set `OPENROUTER_API_KEY`, and optionally `MODEL` to use a different OpenRouter model. For an installed `chyk`, put them in the user config file:
+
+    mkdir -p ~/.config/chyk
+    cp .env.example ~/.config/chyk/.env   # then edit the key
+
+Settings are looked up in this order, and the first one wins:
+1. Environment variables.
+2. A `.env` in the current directory or one of its parents.
+3. `~/.config/chyk/.env` (or `$XDG_CONFIG_HOME/chyk/.env`).
 
 ## Правопис reference
 

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### 2026-11-10 21:12 EET — installable `chyk` command (Claude Code, Claude Opus 5.5)
+
+#### Added
+- `pyproject.toml` with a `chyk` console script. `uv tool install .` makes `chyk <file>` available from any directory.
+- Config is also read from `~/.config/chyk/.env` (`$XDG_CONFIG_HOME/chyk/.env`).
+- README section on installation.
+
+#### Changed
+- `.env` is now searched from the current directory instead of the script's location. Precedence: environment variables, then `./.env`, then the user config.
+
 ### 2026-11-10 20:43 EET — back to a single model: Luna (Claude Code, Claude Opus 5.5)
 
 #### Changed

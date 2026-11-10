@@ -11,7 +11,7 @@ import re
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from openai import OpenAI
 from rich.text import Text
 from textual import events
@@ -20,7 +20,16 @@ from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Static, TextArea
 
-load_dotenv()
+
+def _load_config() -> None:
+    # Values already in the environment win, then ./.env (searching up from
+    # the current directory), then the user config file.
+    load_dotenv(find_dotenv(usecwd=True))
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    load_dotenv(config_home / "chyk" / ".env")
+
+
+_load_config()
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 MODEL = os.environ.get("MODEL", "~openai/gpt-luna-latest")
@@ -303,7 +312,10 @@ class ChykApp(App):
         self.current_correction: str = ""
         api_key = os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is not set (see .env.example)")
+            raise RuntimeError(
+                "OPENROUTER_API_KEY is not set; put it in ~/.config/chyk/.env "
+                "or ./.env (see .env.example)"
+            )
         self.client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
         self.skip_path = self.filepath.with_suffix(self.filepath.suffix + ".chyk")
         self.skip_set: set[str] = self._load_skip_set()

@@ -1,5 +1,9 @@
 # Prompts
 
+## 2026-11-10 21:12 EET — Claude Code, Claude Opus 5.5
+
+> How do i make this checker a distributable command tool? I'd like to be able to install it for the user and run it from any directory.
+
 ## 2026-11-10 20:43 EET — Claude Code, Claude Opus 5.5
 
 > The key is in .env. Run the probe

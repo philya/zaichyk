@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zaichyk"
+version = "0.1.0"
+description = "AI-powered proofreader for Ukrainian markdown text."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["openai", "python-dotenv", "rich", "textual"]
+
+[project.scripts]
+chyk = "chyk:main"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["chyk.py"]
